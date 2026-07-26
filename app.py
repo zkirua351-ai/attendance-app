@@ -22,12 +22,14 @@ sheet = client.open_by_key(
     st.secrets["app"]["spreadsheet_key"]
 ).worksheet("punches")
 
-employees = {
-    "A001": "澤井 一馬",
-    "A002": "小林 渡",
-    "A003": "鈴木"
-}
+def load_employees():
+    staff_sheet = client.open_by_key(
+        st.secrets["app"]["spreadsheet_key"]
+    ).worksheet("staff")
+    records = staff_sheet.get_all_records()
+    return {str(r["社員コード"]): r["氏名"] for r in records}
 
+employees = load_employees()
 
 def attendance(employee_code, action):
     if employee_code == "":
@@ -206,8 +208,9 @@ if page == "打刻画面":
     elif employee_code not in employees:
         st.error("登録されていない社員コードです")
     else:
+        st.write(f"### {employees[employee_code]} さん")
         state = get_state(employee_code)
-        st.write(f"現在の状態：{state}")
+        st.info(f"現在の状態：{state}")
 
         if state == "未出勤":
             if st.button("出勤"):
