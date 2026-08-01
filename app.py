@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -51,7 +52,7 @@ def attendance(employee_code, action):
                     st.error(f"すでに{action}済みです")
                     return
 
-        now = datetime.now()
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
         sheet.append_row([
             now.strftime("%Y%m%d-%H%M%S") + "-" + employee_code,
             now.strftime("%Y-%m-%d %H:%M:%S"),
