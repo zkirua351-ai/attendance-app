@@ -97,15 +97,18 @@ def calc_work_minutes(day_records):
     end_rows = day_records[day_records["区分"] == "退勤"]
 
     if start_rows.empty:
-        return None, "出勤の打刻がありません"
+        return None, "出勤の打刻がありません", "", ""
     if end_rows.empty:
-        return None, "退勤の打刻がありません"
+        return None, "退勤の打刻がありません", "", ""
     if len(start_rows) > 1 or len(end_rows) > 1:
-        return None, "出勤または退勤が複数回あります"
+        return None, "出勤または退勤が複数回あります", "", ""
 
     start = datetime.strptime(start_rows.iloc[0]["打刻日時"], "%Y-%m-%d %H:%M:%S")
     end = datetime.strptime(end_rows.iloc[0]["打刻日時"], "%Y-%m-%d %H:%M:%S")
     total = int((end - start).total_seconds() // 60)
+
+    start_time_str = start.strftime("%H:%M")
+    end_time_str = end.strftime("%H:%M")
 
     break_starts = day_records[day_records["区分"] == "休憩開始"]
     break_ends = day_records[day_records["区分"] == "休憩終了"]
@@ -113,13 +116,12 @@ def calc_work_minutes(day_records):
 
     for i in range(len(break_starts)):
         if i >= len(break_ends):
-            return None, "休憩終了の打刻がありません"
+            return None, "休憩終了の打刻がありません", "", ""
         bs = datetime.strptime(break_starts.iloc[i]["打刻日時"], "%Y-%m-%d %H:%M:%S")
         be = datetime.strptime(break_ends.iloc[i]["打刻日時"], "%Y-%m-%d %H:%M:%S")
         break_minutes += int((be - bs).total_seconds() // 60)
 
-    return total - break_minutes, ""
-   
+    return total - break_minutes, "", start_time_str, end_time_str
 
 
 def format_minutes(minutes):
@@ -132,13 +134,15 @@ def build_daily_summary(attendance_data):
     results = []
 
     for (work_date, emp_code), group in attendance_data.groupby(["勤務日", "社員コード"]):
-        minutes, reason = calc_work_minutes(group)   # ← 2つ受け取る
+        minutes, reason, start_time, end_time = calc_work_minutes(group)
 
         if minutes is None:
             results.append({
                 "勤務日": work_date,
                 "社員コード": emp_code,
                 "氏名": employees[emp_code],
+                "出勤":  "―",      
+                "退勤":  "―",      
                 "実働(分)": "―",
                 "通常(分)": "―",
                 "残業(分)": "―",
@@ -153,6 +157,8 @@ def build_daily_summary(attendance_data):
                 "勤務日": work_date,
                 "社員コード": emp_code,
                 "氏名": employees[emp_code],
+                "出勤": start_time,        
+                "退勤": end_time,        
                 "通常(分)": normal,
                 "残業(分)": overtime,
                 "実働(分)": minutes,
@@ -160,7 +166,6 @@ def build_daily_summary(attendance_data):
                 "残業(時:分)": format_minutes(overtime),
                 "状態": "",
             })
-
     return results
 
 
