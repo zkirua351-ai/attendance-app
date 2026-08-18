@@ -32,14 +32,14 @@ def load_employees():
 
 employees = load_employees()
 
-def attendance(employee_code, action):
+def attendance(employee_code, action, records):
     if employee_code == "":
         st.error("社員コードを入力してください")
     elif employee_code not in employees:
         st.error("登録されていない社員コードです")
     else:
         employee_name = employees[employee_code]
-        records = sheet.get_all_records()
+        
 
         if records:
             attendance_data = pd.DataFrame(records)
@@ -68,8 +68,7 @@ def attendance(employee_code, action):
         st.success(f"{employee_name}さんの{action}を受け付けました")
 
 
-def get_state(employee_code):
-    records = sheet.get_all_records()
+def get_state(employee_code, records):
     if not records:
         return "未出勤"
 
@@ -215,20 +214,21 @@ if page == "打刻画面":
         st.error("登録されていない社員コードです")
     else:
         st.write(f"### {employees[employee_code]} さん")
-        state = get_state(employee_code)
+        records = sheet.get_all_records()          # ← ここで1回だけ読む
+        state = get_state(employee_code, records)   # ← 読んだデータを渡す
         st.info(f"現在の状態：{state}")
 
         if state == "未出勤":
             if st.button("出勤"):
-                attendance(employee_code, "出勤")
+                attendance(employee_code, "出勤", records)   # ← ここにも渡す
         elif state == "勤務中":
             if st.button("休憩開始"):
-                attendance(employee_code, "休憩開始")
+                attendance(employee_code, "休憩開始", records)
             if st.button("退勤"):
-                attendance(employee_code, "退勤")
+                attendance(employee_code, "退勤", records)
         elif state == "休憩中":
             if st.button("休憩終了"):
-                attendance(employee_code, "休憩終了")
+                attendance(employee_code, "休憩終了", records)
 
 
 elif page == "管理者画面":
