@@ -292,7 +292,6 @@ elif page == "管理者画面":
                     mime="text/csv",
                 )
 
-            # ===== 打刻の修正 =====
             elif admin_tab == "打刻の修正":
                 st.subheader("打刻の修正")
 
@@ -306,52 +305,65 @@ elif page == "管理者画面":
                     attendance_data["社員コード"] == selected_emp
                 ]
 
+                # ===== 既存の打刻を取り消す（任意） =====
+                st.markdown("### 既存の打刻を取り消す")
+
                 if emp_punches.empty:
                     st.info("この社員の打刻記録はありません")
+                    selected_id = ""
                 else:
                     work_dates = emp_punches["勤務日"].unique()
-                    selected_date = st.selectbox("勤務日を選択", work_dates)
+                    selected_date_for_cancel = st.selectbox("勤務日を選択", work_dates)
 
                     day_punches = emp_punches[
-                        emp_punches["勤務日"] == selected_date
+                        emp_punches["勤務日"] == selected_date_for_cancel
                     ]
 
-                    options = {}
+                    options = {"（取り消さない）": ""}
                     for _, row in day_punches.iterrows():
                         label = f"{row['区分']}  {row['打刻日時']}  [{row['状態']}]"
                         options[label] = row["id"]
 
-                    selected_label = st.selectbox("打刻を選択", list(options.keys()))
+                    selected_label = st.selectbox("取り消す打刻を選択", list(options.keys()))
                     selected_id = options[selected_label]
 
-                    if st.button("この打刻を取り消す"):
-                        row_number = None
-                        for i in range(len(records)):
-                            if records[i]["id"] == selected_id:
-                                row_number = i + 2
-                                break
-                        sheet.update_cell(row_number, 8, "取消")
-                        st.success("打刻を取り消しました")
-                        st.rerun()
+                    if selected_id != "":
+                        if st.button("この打刻を取り消す"):
+                            row_number = None
+                            for i in range(len(records)):
+                                if records[i]["id"] == selected_id:
+                                    row_number = i + 2
+                                    break
+                            sheet.update_cell(row_number, 8, "取消")
+                            st.success("打刻を取り消しました")
+                            st.rerun()
 
-                    st.markdown("---")
-                    st.write("正しい打刻を追加")
+                # ===== 正しい打刻を追加 =====
+                st.markdown("---")
+                st.markdown("### 正しい打刻を追加")
+                st.info(f"⚠️ 今から【{employees[selected_emp]}さん】の打刻を追加します")
 
-                    new_action = st.selectbox(
-                        "区分",
-                        ["出勤", "休憩開始", "休憩終了", "退勤"]
-                    )
-                    new_date = st.date_input("日付")
-                    new_time_only = st.time_input("時刻", step=60)
-                    new_datetime = datetime.combine(new_date, new_time_only)
-                    new_time = new_datetime.strftime("%Y-%m-%d %H:%M:%S")
-                    new_reason = st.text_input("理由（例: 退勤打刻忘れ）")
+                new_action = st.selectbox(
+                    "区分",
+                    ["出勤", "休憩開始", "休憩終了", "退勤"]
+                )
+                new_date = st.date_input("日付")
+                new_time_only = st.time_input("時刻", step=60)
+                new_datetime = datetime.combine(new_date, new_time_only)
+                new_time = new_datetime.strftime("%Y-%m-%d %H:%M:%S")
+                new_reason = st.text_input("理由（例: 退勤打刻忘れ）")
 
-                    if st.button("この打刻を追加"):
+                if st.button("この打刻を追加"):
+                    new_id = new_time.replace(" ", "").replace(":", "").replace("-", "") + "-" + selected_emp
+
+                    existing_ids = [r["id"] for r in records]
+                    if new_id in existing_ids:
+                        st.error("同じ日時の打刻が、すでに存在します。時刻を変えてください。")
+                    else:
                         sheet.append_row([
-                            new_time.replace(" ", "").replace(":", "").replace("-", "") + "-" + selected_emp,
+                            new_id,
                             new_time,
-                            selected_date,
+                            new_date.strftime("%Y-%m-%d"),
                             selected_emp,
                             employees[selected_emp],
                             new_action,
