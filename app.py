@@ -274,7 +274,17 @@ elif page == "管理者画面":
 
             # ===== 集計 =====
             elif admin_tab == "集計":
-                results = build_daily_summary(attendance_data)
+                st.subheader("対象月を選択")
+
+                attendance_data["勤務日"] = pd.to_datetime(attendance_data["勤務日"])
+                available_months = sorted(attendance_data["勤務日"].dt.strftime("%Y-%m").unique(), reverse=True)
+                selected_month = st.selectbox("集計する月", available_months)
+
+                month_data = attendance_data[
+                    attendance_data["勤務日"].dt.strftime("%Y-%m") == selected_month
+                ]
+
+                results = build_daily_summary(month_data)
 
                 st.subheader("日別集計")
                 st.dataframe(pd.DataFrame(results), use_container_width=True)
@@ -286,9 +296,9 @@ elif page == "管理者画面":
                 df_monthly = pd.DataFrame(monthly)
                 csv = df_monthly.to_csv(index=False).encode("utf-8-sig")
                 st.download_button(
-                    label="月次集計をCSVでダウンロード",
+                    label=f"{selected_month} の月次集計をCSVでダウンロード",
                     data=csv,
-                    file_name="月次集計.csv",
+                    file_name=f"月次集計_{selected_month}.csv",
                     mime="text/csv",
                 )
 
