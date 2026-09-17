@@ -273,16 +273,28 @@ elif page == "管理者画面":
                     st.success("すべての打刻が完了しています")
 
             # ===== 集計 =====
+                        # ===== 集計 =====
             elif admin_tab == "集計":
                 st.subheader("対象月を選択")
 
-                attendance_data["勤務日"] = pd.to_datetime(attendance_data["勤務日"])
-                available_months = sorted(attendance_data["勤務日"].dt.strftime("%Y-%m").unique(), reverse=True)
+                work_date_as_datetime = pd.to_datetime(attendance_data["勤務日"])
+                available_months = sorted(work_date_as_datetime.dt.strftime("%Y-%m").unique(), reverse=True)
                 selected_month = st.selectbox("集計する月", available_months)
 
+                st.subheader("対象社員を選択")
+                employee_options = ["全員"] + list(employees.keys())
+                selected_employee = st.selectbox(
+                    "集計する社員",
+                    employee_options,
+                    format_func=lambda x: "全員" if x == "全員" else employees[x]
+                )
+
                 month_data = attendance_data[
-                    attendance_data["勤務日"].dt.strftime("%Y-%m") == selected_month
+                    work_date_as_datetime.dt.strftime("%Y-%m") == selected_month
                 ]
+
+                if selected_employee != "全員":
+                    month_data = month_data[month_data["社員コード"] == selected_employee]
 
                 results = build_daily_summary(month_data)
 
