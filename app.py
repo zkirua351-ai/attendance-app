@@ -4,6 +4,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import gspread
 from google.oauth2.service_account import Credentials
+import io
 
 page = st.sidebar.selectbox(
     "画面を選択してください",
@@ -306,12 +307,16 @@ elif page == "管理者画面":
                 st.dataframe(pd.DataFrame(monthly), use_container_width=True)
 
                 df_monthly = pd.DataFrame(monthly)
-                csv = df_monthly.to_csv(index=False).encode("utf-8-sig")
+
+                excel_buffer = io.BytesIO()
+                df_monthly.to_excel(excel_buffer, index=False, sheet_name="月次集計")
+                excel_buffer.seek(0)
+
                 st.download_button(
-                    label=f"{selected_month} の月次集計をCSVでダウンロード",
-                    data=csv,
-                    file_name=f"月次集計_{selected_month}.csv",
-                    mime="text/csv",
+                    label=f"{selected_month} の月次集計をExcelでダウンロード",
+                    data=excel_buffer,
+                    file_name=f"月次集計_{selected_month}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
 
             elif admin_tab == "打刻の修正":
