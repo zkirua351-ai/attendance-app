@@ -16,20 +16,25 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-creds = Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"], scopes=SCOPES
-)
-client = gspread.authorize(creds)
-sheet = client.open_by_key(
-    st.secrets["app"]["spreadsheet_key"]
-).worksheet("punches")
 
+@st.cache_resource
+def get_sheets():
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES
+    )
+    client = gspread.authorize(creds)
+    spreadsheet = client.open_by_key(st.secrets["app"]["spreadsheet_key"])
+    return spreadsheet.worksheet("punches"), spreadsheet.worksheet("staff")
+
+
+sheet, staff_sheet = get_sheets()
+
+
+@st.cache_data(ttl=600)
 def load_employees():
-    staff_sheet = client.open_by_key(
-        st.secrets["app"]["spreadsheet_key"]
-    ).worksheet("staff")
     records = staff_sheet.get_all_records()
     return {str(r["社員コード"]): r["氏名"] for r in records}
+
 
 employees = load_employees()
 
