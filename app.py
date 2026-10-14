@@ -30,7 +30,7 @@ def get_sheets():
 sheet, staff_sheet = get_sheets()
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def load_employees():
     records = staff_sheet.get_all_records()
     return {str(r["社員コード"]): r["氏名"] for r in records}
