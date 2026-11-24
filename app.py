@@ -74,6 +74,37 @@ def attendance(employee_code, action, records):
         st.success(f"{employee_name}さんの{action}を受け付けました")
 
 
+def auto_close_previous_shift(employee_code, records):
+    if not records:
+        return None
+
+    df = pd.DataFrame(records)
+    emp = df[(df["社員コード"] == employee_code) & (df["状態"] == "有効")]
+    if emp.empty:
+        return None
+
+    last = emp.iloc[-1]
+    if last["区分"] == "退勤":
+        return None
+
+    today = datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y-%m-%d")
+    work_date = last["勤務日"]
+    if work_date == today:
+        return None
+
+    sheet.append_row([
+        work_date.replace("-", "") + "-220000-" + employee_code,
+        f"{work_date} 22:00:00",
+        work_date,
+        employee_code,
+        employees[employee_code],
+        "退勤",
+        "自動退勤",
+        "有効",
+        "",
+        "退勤の打刻がなかったため自動登録",
+    ])
+    return work_date
 def get_state(employee_code, records):
     if not records:
         return "未出勤"
@@ -107,6 +138,8 @@ def calc_work_minutes(day_records):
         return None, "退勤の打刻がありません", "", ""
     if len(start_rows) > 1 or len(end_rows) > 1:
         return None, "出勤または退勤が複数回あります", "", ""
+    if (end_rows["入力元"] == "自動退勤").any():
+        return None, "【自動退勤】実際の退勤時刻を確認してください", "", ""
 
     start = datetime.strptime(start_rows.iloc[0]["打刻日時"], "%Y-%m-%d %H:%M:%S")
     end = datetime.strptime(end_rows.iloc[0]["打刻日時"], "%Y-%m-%d %H:%M:%S")
@@ -220,13 +253,22 @@ if page == "打刻画面":
         st.error("登録されていない社員コードです")
     else:
         st.write(f"### {employees[employee_code]} さん")
-        records = sheet.get_all_records()          # ← ここで1回だけ読む
-        state = get_state(employee_code, records)   # ← 読んだデータを渡す
+        records = sheet.get_all_records()
+
+        closed_date = auto_close_previous_shift(employee_code, records)
+        if closed_date:
+            st.warning(
+                f"{closed_date} の退勤が記録されていなかったため、自動で退勤扱いにしました。"
+                "実際に帰った時刻を店長に伝えてください。"
+            )
+            records = sheet.get_all_records()
+
+        state = get_state(employee_code, records)
         st.info(f"現在の状態：{state}")
 
         if state == "未出勤":
             if st.button("出勤"):
-                attendance(employee_code, "出勤", records)   # ← ここにも渡す
+                attendance(employee_code, "出勤", records)
         elif state == "勤務中":
             if st.button("休憩開始"):
                 attendance(employee_code, "休憩開始", records)
@@ -235,7 +277,6 @@ if page == "打刻画面":
         elif state == "休憩中":
             if st.button("休憩終了"):
                 attendance(employee_code, "休憩終了", records)
-
 
 elif page == "管理者画面":
     st.title("管理者画面")
@@ -271,6 +312,10 @@ elif page == "管理者画面":
                 incomplete_rows = [r for r in results if r["状態"] != ""]
 
                 if incomplete_rows:
+                    auto_count = len([r for r in incomplete_rows if "自動退勤" in r["状態"]])
+                    if auto_count > 0:
+                        st.error(f"🔴 自動退勤が {auto_count} 件あります。本人に実際の退勤時刻を確認して修正してください")
+
                     st.dataframe(
                         pd.DataFrame(incomplete_rows)[["勤務日", "氏名", "状態"]],
                         use_container_width=True
